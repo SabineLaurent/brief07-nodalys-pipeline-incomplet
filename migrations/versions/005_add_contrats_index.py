@@ -1,4 +1,4 @@
-"""Index de performance sur contrats.statut + date_signature.
+"""Index de performance sur contrats.statut + date_signature (à fix).
 
 Revision ID: 005
 Revises: 004
@@ -14,12 +14,16 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.create_index(
-        "ix_contrats_statut_date",
-        "contrats",
-        ["statut", "date_signature"],
-    )
+    # TODO
+    # op.create_index(
+    #     "ix_contrats_statut_date",
+    #     "contrats",
+    #     ["statut", "date_signature"],
+    # )
+    pass
 
 
 def downgrade() -> None:
-    op.drop_index("ix_contrats_statut_date", table_name="contrats")
+    # TODO
+    # op.drop_index("ix_contrats_statut_date", table_name="contrats")
+    pass
