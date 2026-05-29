@@ -1,8 +1,11 @@
-"""Placeholder — table contrats (à implémenter).
+"""Crée la table contrats.
 
 Revision ID: 004
 Revises: 003
 """
+
+import sqlalchemy as sa
+from alembic import op
 
 revision = "004"
 down_revision = "003"
@@ -11,10 +14,17 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # TODO
-    pass
+    op.create_table(
+        "contrats",
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("client_id", sa.Integer, sa.ForeignKey("clients.id"), nullable=False),
+        sa.Column("session_id", sa.Integer, sa.ForeignKey("sessions.id"), nullable=False),
+        sa.Column("statut", sa.String(64), nullable=False),
+        sa.Column("montant_ht", sa.Numeric(10, 2), nullable=False),
+        sa.Column("date_signature", sa.Date, nullable=False),
+        sa.Column("created_at", sa.DateTime, server_default=sa.func.now()),
+    )
 
 
 def downgrade() -> None:
-    # TODO
-    pass
+    op.drop_table("contrats")

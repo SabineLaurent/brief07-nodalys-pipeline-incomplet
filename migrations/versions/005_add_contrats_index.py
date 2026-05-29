@@ -14,16 +14,12 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # TODO
-    # op.create_index(
-    #     "ix_contrats_statut_date",
-    #     "contrats",
-    #     ["statut", "date_signature"],
-    # )
-    pass
+    op.create_index(
+        "ix_contrats_statut_date",
+        "contrats",
+        ["statut", "date_signature"],
+    )
 
 
 def downgrade() -> None:
-    # TODO
-    # op.drop_index("ix_contrats_statut_date", table_name="contrats")
-    pass
+    op.drop_index("ix_contrats_statut_date", table_name="contrats")
