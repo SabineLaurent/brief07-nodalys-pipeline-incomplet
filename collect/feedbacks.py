@@ -10,7 +10,7 @@ import csv
 from datetime import date
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import text
 
 from collect._common import db_session, log
@@ -34,14 +34,24 @@ def list_csv_files() -> list[Path]:
 
 def read_csv(path: Path) -> list[FeedbackRow]:
     rows = []
+    skipped = 0
     with path.open(newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f, delimiter=";")
         for raw in reader:
-            row = FeedbackRow.model_validate(
-                {**raw, "source_csv": path.name}
-            )
-            rows.append(row)
-    log.info("collect.feedbacks.csv_read", file=path.name, count=len(rows))
+            try:
+                row = FeedbackRow.model_validate(
+                    {**raw, "source_csv": path.name}
+                )
+                rows.append(row)
+            except ValidationError as e:
+                skipped += 1
+                log.warning(
+                    "collect.feedbacks.row_skipped",
+                    file=path.name,
+                    row=raw,
+                    error=str(e),
+                )
+    log.info("collect.feedbacks.csv_read", file=path.name, count=len(rows), skipped=skipped)
     return rows
 
 
