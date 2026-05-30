@@ -12,6 +12,7 @@ from pathlib import Path
 from langchain_core.tools import tool
 from sqlalchemy import create_engine, text
 
+
 QUERIES_DIR = Path(__file__).parent.parent / "queries"
 
 
@@ -24,6 +25,9 @@ def _engine_from_env(env_var: str = "DB_URL"):
 
 @tool
 def query_db(query_name: str) -> str:
+    """Exécute une requête SQL prédéfinie et renvoie les résultats.
+    
+    """
     sql_path = QUERIES_DIR / f"{query_name}.sql"
     if not sql_path.exists():
         return f"Requête inconnue : {query_name}. Disponibles : " + ", ".join(
@@ -44,7 +48,7 @@ def query_feedbacks(note_min: int = 1, note_max: int = 5) -> str:
     Utile pour répondre à des questions comme « quels sont les retours
     négatifs des dernières sessions ? ».
     """
-    engine = _engine_from_env("DB_FEEDBACK_URL")
+    engine = _engine_from_env("DB_URL")
     with engine.connect() as conn:
         result = conn.execute(
             text(
