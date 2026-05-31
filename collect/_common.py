@@ -13,6 +13,7 @@ Toutes les fonctions ci-dessous sont réutilisables — voir
 from __future__ import annotations
 
 import os
+import time
 from contextlib import contextmanager
 from typing import Iterator
 
@@ -74,5 +75,11 @@ def http_get_json(url: str, **kwargs) -> dict:
     """GET + retry exponentiel — convention partagée par tous les collecteurs API."""
     with httpx.Client(timeout=10.0) as client:
         response = client.get(url, **kwargs)
+
+        if response.status_code == 429:
+            retry_after = response.headers.get("Retry-After", 5)  # Fallback à 5 secondes si le header est absent
+            log.warning("http.rate_limited", url=url, retry_after=int(retry_after))
+            time.sleep(int(retry_after))
+
         response.raise_for_status()
         return response.json()
