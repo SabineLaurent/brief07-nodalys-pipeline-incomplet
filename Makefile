@@ -37,4 +37,4 @@ dbreset:
 	make up
 
 dbcheck:
-	docker exec -i $(DB_CONTAINER) psql -U $(DB_USER) -d $(DB_NAME) < tests/queries-db-creation-test.sql
+	docker exec -i $(DB_CONTAINER) psql -U $(DB_USER) -d $(DB_NAME) < tests/queries-db-creation-control-test.sql
