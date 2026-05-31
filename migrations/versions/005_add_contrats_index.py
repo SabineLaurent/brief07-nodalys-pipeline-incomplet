@@ -1,4 +1,4 @@
-"""Index de performance sur contrats.statut + date_signature (à fix).
+"""Index de performance sur contrats.statut + date_signature.
 
 Revision ID: 005
 Revises: 004
