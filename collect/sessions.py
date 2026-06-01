@@ -39,6 +39,20 @@ class SessionPayload(BaseModel):
     places_max: int = Field(ge=1)
 
 
+class StagiairePayload(BaseModel):
+    """Schéma d'un stagiaire — liste blanche explicite des champs autorisés.
+
+    telephone_personnel est délibérément absent : champ interdit par le mémo RGPD.
+    Pydantic ignore structurellement tout champ non déclaré (extra='ignore' par défaut).
+    """
+
+    id: int
+    session_id: int
+    prenom: str
+    nom: str
+    email: str | None = None
+
+
 def fetch_sessions() -> list[SessionPayload]:
     """Appelle l'API mock et valide la charge utile via pydantic."""
     base = get_api_base_url()
