@@ -27,5 +27,15 @@ services:
       timeout: 5s
       retries: 10
 
+  cron:
+    build:
+      context: .
+      dockerfile: Dockerfile.cron
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: postgresql+psycopg://nodalys:nodalys@db:5432/nodalys
+
 volumes:
   nodalys_db_data:

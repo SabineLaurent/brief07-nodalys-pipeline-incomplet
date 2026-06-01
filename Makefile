@@ -1,6 +1,6 @@
 include .env
 
-.PHONY: up down migrate seed ingest chat test fmt logs dbreset dbcheck
+.PHONY: up down migrate seed ingest anonymize chat test fmt logs dbreset dbcheck
 
 up:
 	docker compose up -d
@@ -21,6 +21,9 @@ seed:
 ingest:
 	uv run python -m collect.sessions
 	uv run python -m collect.feedbacks
+
+anonymize:
+	uv run python -m collect.anonymize
 
 chat:
 	uv run python scripts/chat.py
