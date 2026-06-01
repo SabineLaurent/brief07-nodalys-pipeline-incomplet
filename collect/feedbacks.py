@@ -17,6 +17,7 @@ from collect._common import db_session, log
 
 
 class FeedbackRow(BaseModel):
+    """Schéma d'une ligne de feedback telle que lue dans les CSV."""
     session_id: int
     stagiaire_email: str | None = None
     date_saisie: date
@@ -26,6 +27,7 @@ class FeedbackRow(BaseModel):
 
 
 def list_csv_files() -> list[Path]:
+    """Liste les chemins d'accès des fichiers CSV de feedbacks à traiter."""
     data_dir = Path(__file__).parent.parent / "data" / "feedbacks"
     files = sorted(data_dir.glob("*.csv"))
     log.info("collect.feedbacks.csv_found", count=len(files))
@@ -33,6 +35,7 @@ def list_csv_files() -> list[Path]:
 
 
 def read_csv(path: Path) -> list[FeedbackRow]:
+    """Lit un fichier CSV et valide chaque ligne via pydantic."""
     rows = []
     skipped = 0
     with path.open(newline="", encoding="utf-8") as f:
@@ -56,6 +59,7 @@ def read_csv(path: Path) -> list[FeedbackRow]:
 
 
 def upsert_feedbacks(session, rows: list[FeedbackRow]) -> int:
+    """Upsert idempotent des feedbacks d'une session."""
     inserted = 0
     for row in rows:
         result = session.execute(
@@ -76,6 +80,7 @@ def upsert_feedbacks(session, rows: list[FeedbackRow]) -> int:
                     source_csv   = EXCLUDED.source_csv
                 """
             ),
+            # Requete paramétrée avec les champs du modèle Pydantic --> évite les injections SQL.
             row.model_dump(),
         )
         inserted += result.rowcount or 0
