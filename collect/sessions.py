@@ -141,10 +141,17 @@ def upsert_sessions(session, sessions_payload: list[SessionPayload]) -> int:
     return inserted
 
 
-def upsert_stagiaires(session, stagiaires: list[StagiairePayload]) -> int:
-    """Upsert idempotent des stagiaires — clé naturelle : ``id``."""
+def upsert_stagiaires(
+    session, stagiaires: list[StagiairePayload], active_session_ids: set[int]
+) -> int:
+    """Upsert idempotent des stagiaires — clé naturelle : ``id``.
+
+    active_session_ids : IDs des sessions dont date_fin >= aujourd'hui.
+    L'email n'est stocké que pour les stagiaires rattachés à une session active (RGPD §2).
+    """
     inserted = 0
     for s in stagiaires:
+        email = s.email if s.session_id in active_session_ids else None
         result = session.execute(
             text(
                 """
@@ -157,7 +164,7 @@ def upsert_stagiaires(session, stagiaires: list[StagiairePayload]) -> int:
                       email = EXCLUDED.email
                 """
             ),
-            s.model_dump(),
+            {"id": s.id, "session_id": s.session_id, "prenom": s.prenom, "nom": s.nom, "email": email},
         )
         inserted += result.rowcount or 0
     log.info("collect.stagiaires.upserted", count=inserted)
@@ -168,10 +175,11 @@ def run() -> None:
     log.info("collect.sessions.start")
     sessions_payload = fetch_sessions()
     stagiaires_payload = fetch_stagiaires()
+    active_session_ids = {s.id for s in sessions_payload if s.date_fin >= date.today()}
     with db_session() as session:
         nb_clients = upsert_clients(session, sessions_payload)
         nb_sessions = upsert_sessions(session, sessions_payload)
-        nb_stagiaires = upsert_stagiaires(session, stagiaires_payload)
+        nb_stagiaires = upsert_stagiaires(session, stagiaires_payload, active_session_ids)
     log.info(
         "collect.sessions.done",
         clients=nb_clients,
