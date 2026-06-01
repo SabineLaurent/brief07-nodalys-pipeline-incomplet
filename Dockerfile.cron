@@ -15,9 +15,13 @@ RUN pip install --no-cache-dir \
     tenacity>=8.2
 
 COPY collect/ ./collect/
+COPY jobs/ ./jobs/
 
-RUN echo "0 2 * * * root cd /app && python -m collect.anonymize >> /proc/1/fd/1 2>/proc/1/fd/2" \
+RUN echo "0 2 * * * root cd /app && python -m jobs.anonymize >> /proc/1/fd/1 2>/proc/1/fd/2" \
     > /etc/cron.d/anonymize \
-    && chmod 0644 /etc/cron.d/anonymize
+    && chmod 0644 /etc/cron.d/anonymize \
+    && echo "0 3 1 * * root cd /app && python -m jobs.purge_billing >> /proc/1/fd/1 2>/proc/1/fd/2" \
+    > /etc/cron.d/purge_billing \
+    && chmod 0644 /etc/cron.d/purge_billing
 
 CMD ["cron", "-f"]

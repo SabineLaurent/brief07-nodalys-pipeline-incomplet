@@ -5,7 +5,7 @@ Règles :
 - J+30  après date_saisie            : commentaire purgé (mis à NULL)
 
 Exécutable en CRON :
-    uv run python -m collect.anonymize
+    uv run python -m jobs.anonymize
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ def anonymize_emails(session) -> int:
             {"h": hashed, "id": row.id},
         )
 
-    log.info("collect.anonymize.emails_done", count=len(rows))
+    log.info("jobs.anonymize.emails_done", count=len(rows))
     return len(rows)
 
 
@@ -62,17 +62,17 @@ def purge_comments(session) -> int:
         {"cutoff": cutoff},
     )
     nb = result.rowcount or 0
-    log.info("collect.anonymize.comments_done", count=nb)
+    log.info("jobs.anonymize.comments_done", count=nb)
     return nb
 
 
 def run() -> None:
-    log.info("collect.anonymize.start")
+    log.info("jobs.anonymize.start")
     with db_session() as session:
         nb_emails = anonymize_emails(session)
         nb_comments = purge_comments(session)
     log.info(
-        "collect.anonymize.done",
+        "jobs.anonymize.done",
         emails_anonymized=nb_emails,
         comments_purged=nb_comments,
     )
