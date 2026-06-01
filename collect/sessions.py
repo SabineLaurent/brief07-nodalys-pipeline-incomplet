@@ -62,6 +62,32 @@ def fetch_sessions() -> list[SessionPayload]:
     return items
 
 
+def fetch_stagiaires() -> list[StagiairePayload]:
+    """Appelle l'API (paginée par curseur) et valide chaque item via pydantic."""
+    base = get_api_base_url()
+    items: list[StagiairePayload] = []
+
+    # 1) Au lancement, on a une page complète sans curseur. Si l'API pagine, elle renverra un curseur pour la page suivante.
+    cursor = None
+    while True:
+        url = f"{base}/api/stagiaires"
+        # Si on a un curseur, c'est qu'on n'est pas à la première page, donc on l'ajoute à l'URL pour récupérer la page suivante.
+        if cursor:
+            url += f"?cursor={cursor}"
+        payload = http_get_json(url)
+        items += [StagiairePayload.model_validate(item) for item in payload["items"]]
+
+        # 2) Si l'API renvoie un curseur, c'est qu'il y a une page suivante, et on le stocke pour la prochaine requête.
+        cursor = payload.get("next_cursor")
+
+        # 3) Si l'API ne renvoie pas de curseur, c'est qu'on a atteint la dernière page, et on sort de la boucle.
+        if cursor is None:
+            break
+
+    log.info("collect.stagiaires.fetched", count=len(items))
+    return items
+
+
 def upsert_clients(session, sessions_payload: list[SessionPayload]) -> int:
     """Upsert idempotent des clients référencés par les sessions."""
     seen: dict[int, str] = {}
@@ -115,50 +141,25 @@ def upsert_sessions(session, sessions_payload: list[SessionPayload]) -> int:
     return inserted
 
 
-def upsert_stagiaires(session) -> int:
-    """Collecte des stagiaires depuis ``GET /api/stagiaires`` et upsert."""
-    base = get_api_base_url()
+def upsert_stagiaires(session, stagiaires: list[StagiairePayload]) -> int:
+    """Upsert idempotent des stagiaires — clé naturelle : ``id``."""
     inserted = 0
-
-    # 1) Au lancement, on a une page complète sans curseur. Si l'API pagine, elle renverra un curseur pour la page suivante.
-    cursor = None 
-    while True:
-        url = f"{base}/api/stagiaires"
-        # Si on a un curseur, c'est qu'on n'est pas à la première page, donc on l'ajoute à l'URL pour récupérer la page suivante.
-        if cursor:
-            url += f"?cursor={cursor}"
-        
-        payload = http_get_json(url)
-        for item in payload["items"]:
-            result = session.execute(
-                text(
-                    """
-                    INSERT INTO stagiaires (id, session_id, prenom, nom, email)
-                    VALUES (:id, :session_id, :prenom, :nom, :email)
-                    ON CONFLICT (id) DO UPDATE
-                      SET session_id = EXCLUDED.session_id,
-                          prenom = EXCLUDED.prenom,
-                          nom = EXCLUDED.nom,
-                          email = EXCLUDED.email
-                    """
-                ),
-                {
-                    "id": item["id"],
-                    "session_id": item["session_id"],
-                    "prenom": item["prenom"],
-                    "nom": item["nom"],
-                    "email": item["email"],
-                },
-            )
-            inserted += result.rowcount or 0
-
-        # 2) Si l'API renvoie un curseur, c'est qu'il y a une page suivante, et on le stocke pour la prochaine requête.
-        cursor = payload.get("next_cursor")
-
-        # 3) Si l'API ne renvoie pas de curseur, c'est qu'on a atteint la dernière page, et on sort de la boucle.
-        if cursor is None:
-            break
-
+    for s in stagiaires:
+        result = session.execute(
+            text(
+                """
+                INSERT INTO stagiaires (id, session_id, prenom, nom, email)
+                VALUES (:id, :session_id, :prenom, :nom, :email)
+                ON CONFLICT (id) DO UPDATE
+                  SET session_id = EXCLUDED.session_id,
+                      prenom = EXCLUDED.prenom,
+                      nom = EXCLUDED.nom,
+                      email = EXCLUDED.email
+                """
+            ),
+            s.model_dump(),
+        )
+        inserted += result.rowcount or 0
     log.info("collect.stagiaires.upserted", count=inserted)
     return inserted
 
@@ -166,10 +167,11 @@ def upsert_stagiaires(session) -> int:
 def run() -> None:
     log.info("collect.sessions.start")
     sessions_payload = fetch_sessions()
+    stagiaires_payload = fetch_stagiaires()
     with db_session() as session:
         nb_clients = upsert_clients(session, sessions_payload)
         nb_sessions = upsert_sessions(session, sessions_payload)
-        nb_stagiaires = upsert_stagiaires(session)
+        nb_stagiaires = upsert_stagiaires(session, stagiaires_payload)
     log.info(
         "collect.sessions.done",
         clients=nb_clients,
