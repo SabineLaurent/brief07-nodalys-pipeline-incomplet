@@ -14,6 +14,7 @@ import hashlib
 from datetime import date, timedelta
 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from collect._common import db_session, log
 
@@ -38,10 +39,14 @@ def anonymize_emails(session) -> int:
 
     for row in rows:
         hashed = "sha256:" + hashlib.sha256(row.stagiaire_email.encode()).hexdigest()[:16]
-        session.execute(
-            text("UPDATE feedbacks SET stagiaire_email = :h WHERE id = :id"),
-            {"h": hashed, "id": row.id},
-        )
+        try:
+            with session.begin_nested():
+                session.execute(
+                    text("UPDATE feedbacks SET stagiaire_email = :h WHERE id = :id"),
+                    {"h": hashed, "id": row.id},
+                )
+        except IntegrityError:
+            log.warning("jobs.anonymize.hash_collision", id=row.id, hash=hashed)
 
     log.info("jobs.anonymize.emails_done", count=len(rows))
     return len(rows)
