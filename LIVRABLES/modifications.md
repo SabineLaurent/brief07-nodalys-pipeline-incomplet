@@ -14,6 +14,6 @@
 | fix | API renvoyait 429 sur les feedbacks sans être gérée → crash | Détection 429, `Retry-After` lu, pause avant retry dans `http_get_json()` | `collect/_common.py` |
 | feat | RGPD 1 — `telephone_personnel` filtré par omission (fragile) | `StagiairePayload` Pydantic — champ absent structurellement | `collect/sessions.py` |
 | feat | RGPD 2 — email stocké sans vérifier l'activité de la session | `fetch_stagiaires()` + `active_session_ids` — email conditionné à `date_fin >= aujourd'hui` | `collect/sessions.py` |
-| feat | RGPD 3 — anonymisation des feedbacks complètement absente | Module CRON : hash SHA-256 email à J+180, purge commentaire à J+30 | `collect/anonymize.py` |
+| feat | RGPD 3 — anonymisation des feedbacks complètement absente | Module CRON : hash SHA-256 email à J+180, purge commentaire à J+30 (temporaire, faute de mieux) | `collect/anonymize.py` |
 | feat | RGPD 3bis — `collect/anonymize.py` jamais déclenché automatiquement | Service `cron` Docker (2h00 quotidien) + `make anonymize` pour exécution manuelle | `Dockerfile.cron`, `docker-compose.yml`, `Makefile` |
-| feat | RGPD 1 — aucune purge des données de facturation après prescription légale (5 ans) | `purge_old_billing_data()` dans le module CRON existant : suppression en cascade feedbacks → stagiaires → contrats → sessions → clients orphelins, cutoff `date_fin < aujourd'hui - 5 ans` | `collect/anonymize.py` |
+| feat | RGPD 4 — purge des données de facturation après prescription légale (5 ans) | `purge_old_billing_data()` dans le module CRON existant : suppression en cascade feedbacks → stagiaires → contrats → sessions → clients orphelins, cutoff `date_fin < aujourd'hui - 5 ans` | `collect/anonymize.py` |

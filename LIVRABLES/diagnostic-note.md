@@ -14,7 +14,7 @@ Le pipeline est constitué de:
 
 C'est la BDD Nodalys, que l'agent IA va questionner.
 
-### La logistique fonctionnelle sous forme de package
+### La logistique fonctionnelle sous forme de packages
 
 Pour extraire la donnée des sources disctintes et enrichir la BDD.
 
@@ -42,8 +42,8 @@ La commande `make chat` démarre le chat boosté à l'IA: l'Assistant Nodalys.
 
 ### Ordre à respecter
 
-1. `make up` pour monter les conteneurs dockers de l'API Nodalys et de la BDD Nodalys qui est sur serveur Postgres. Cela se fait avec docker compose.
-2. `make migrate` pour créer les tables en BDD Nodalys. Tables clients et sessions, puis stagiaires, puis feedbacks et enfin contrats. L'ordre de création des tables est imposé par les relations des tables entre elles. Une table A qui comporte une clé étrangère issue d'une table B, devra être créée après elle. Ainsi, la table B est créer en premier et ensuite la table A.
+1. `make up` pour monter les conteneurs dockers de l'API Nodalys ainsi que celui de la BDD Nodalys qui est sur serveur Postgres. Cela se fait avec docker compose.
+2. `make migrate` pour créer les tables en BDD Nodalys. Tables clients et sessions, puis stagiaires, puis feedbacks et enfin contrats. L'ordre de création des tables est imposé par les relations des tables entre elles. Une table A qui comporte une clé étrangère issue d'une table B, devra être créée après elle. Ainsi, la table B est créer en premier et ensuite la table A. Il en est de même pour l'ordre de remplissage de ses tables.
 3. `make ingest` permet de remplir les tables clients, sessions et stagiaires avec les données appropriées.
 4. `make seed` L'enregistrement en BDD des données de contrats se fait après le ingest car les données de contrats dépendent des tables clients et sessions.
 5. `make chat` C'est une fois la BDD Nodalys complétée que le chat IA peut être démarré.
@@ -82,4 +82,19 @@ Il n'est pas respecté.
 
 - En l'état, il n'y a pas de gestion de l'anonymisation des feedbacks 6 mois après la fin de session de formation, ni suppression des données 5 ans après la fin de formation.
 - Le filtrage des numéros de téléphone des stagiaires n'est pas explicite lors de la récupération des data provenant de l'API mockée.
- 
+- Filtre du contenu nominatif des feedbacks après 30 jours à implémenter.
+
+## Ce que j'ai modifié
+
+cf. mon historique de commit
+J'ai fait au mieux pour avoir des messages de commit explicitent et des push atomiques. J'espère que c'est le cas.
+
+---
+
+# Pour aller plus loin
+
+Améliorations envisageables:
+- export les logs d'erreur ingest dans un fichier de log dédié, pour vérification et modification manuel des données en anomalie.
+- ajout d'une mémoire des échanges pour le session en cours.
+- ajout de commandes du type /nom-de-la-commande pour interroger l'IA sur des questions récurrentes.
+  

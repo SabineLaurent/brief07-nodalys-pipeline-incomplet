@@ -30,6 +30,13 @@ make seed                  # contrats (fixture JSON)
 make chat                  # REPL avec l'assistant
 ```
 
+Jobs RGPD (exécutés automatiquement par le service `cron` Docker) :
+
+```bash
+make anonymize             # anonymisation emails J+180, purge commentaires J+30
+make purge-billing         # purge données facturation J+5ans
+```
+
 Variables d'environnement (cf. `.env.example`) :
 
 | Variable | Description |
@@ -47,7 +54,8 @@ Variables d'environnement (cf. `.env.example`) :
 
 ```
 .
-├── docker-compose.yml             Postgres 16 + mock API
+├── docker-compose.yml             Postgres 16 + mock API + service cron RGPD
+├── Dockerfile.cron                Image du service cron (anonymize quotidien + purge billing mensuel)
 ├── Makefile
 ├── pyproject.toml
 ├── alembic.ini
@@ -66,6 +74,9 @@ Variables d'environnement (cf. `.env.example`) :
 │   ├── _common.py                 db_session, http_get_json (retry + 429), log
 │   ├── sessions.py                API → clients + sessions + stagiaires (pagination cursor)
 │   └── feedbacks.py               CSV → feedbacks (validation pydantic ligne par ligne)
+├── jobs/                          Jobs planifiés — cycle de vie des données
+│   ├── anonymize.py               CRON quotidien 2h00 — email SHA-256 J+180, purge commentaire J+30
+│   └── purge_billing.py           CRON mensuel 1er du mois 3h00 — purge facturation J+5ans
 ├── queries/                       Fichiers SQL consommés par l'outil query_db
 │   ├── top_formations.sql         Sessions Q3 par nb de stagiaires — fonctionnel
 │   ├── stagiaires_par_session.sql Effectifs par session avec client — fonctionnel
@@ -107,35 +118,28 @@ sessions ──< feedbacks
 | `feedbacks` | UNIQUE (`session_id`, `stagiaire_email`, `date_saisie`) |
 | `contrats` | FK `client_id` + `session_id` ; index sur `(statut, date_signature)` |
 
+## RGPD
+
+| Règle | Implémentation |
+|---|---|
+| `telephone_personnel` interdit à la collecte | `StagiairePayload` Pydantic — champ structurellement absent |
+| Email stocké seulement pour sessions actives | `upsert_stagiaires` conditionne l'email à `date_fin >= aujourd'hui` |
+| `stagiaire_email` anonymisé à J+180 | `jobs/anonymize.py` — hash SHA-256 tronqué 16 chars, préfixe `sha256:` |
+| `commentaire` purgé à J+30 | `jobs/anonymize.py` — mis à NULL |
+| Données de facturation purgées à J+5ans | `jobs/purge_billing.py` — suppression en cascade feedbacks → stagiaires → contrats → sessions → clients orphelins |
+
 ## Points d'attention
 
-### Bugs connus dans le code actuel
+### Re-ingest après anonymisation
 
-- **`assistant/agent.py`** — importe `create_agent` depuis `langchain.agents`,
-  fonction qui n'existe pas dans LangChain ≥ 1.0. L'agent ne peut pas
-  être instancié en l'état ; il faudra probablement `create_react_agent`
-  ou équivalent selon la version cible.
+Lorsque `jobs/anonymize.py` hash un `stagiaire_email`, la clé unique de la row passe de l'email original à `sha256:…`. Si `makeingest` est relancé après coup, le collecteur `collect/feedbacks.py` réinsère la ligne d'origine (email en clair) sans conflit de contrainte — la clé composite `(session_id, stagiaire_email, date_saisie)` est différente, créant un doublon en base. Au prochain run du cron, la tentative d'anonymiser ce doublon lève une `UniqueViolation` (deux rows pour le même hash sur le même `(session_id, date_saisie)`).
+`jobs/anonymize.py` gère ce cas via un savepoint par ligne : la collision est loguée (`jobs.anonymize.hash_collision`) et la row en doublon est ignorée. La conformité RGPD n'est pas dégradée puisque la donnée en clair est en attente d'anonymisation au prochain cron.
 
-- **`queries/feedbacks_recents.sql`** — filtre sur `f.created_at`
-  (horodatage d'insertion en base) et non sur `f.date_saisie`
-  (date de saisie du feedback). Si l'ingest n'a pas tourné dans les
-  7 derniers jours, la requête renvoie zéro résultat même avec des
-  feedbacks récents.
+La correction structurelle serait d'empêcher le collecteur de réinsérer des lignes pour des sessions déjà anonymisées.
 
-- **`queries/contrats_actifs.sql`** — joint `contrats` à `stagiaires`
-  via `session_id`. Un contrat lie un client à une session, pas
-  directement un stagiaire : la sémantique de la requête est discutable
-  et peut produire des doublons par stagiaire.
+### Filtre des feedbacks
 
-### RGPD
-
-- La mock API expose `telephone_personnel` dans `/api/stagiaires`
-  (champ interdit à la collecte selon `docs/RGPD-memo.md`). Le
-  collecteur `collect/sessions.py` ne stocke pas ce champ (la table
-  `stagiaires` ne le contient pas), mais aucune assertion explicite ne
-  l'écarte au niveau du collecteur.
-- Aucun job d'anonymisation des feedbacks n'est implémenté
-  (`stagiaire_email` + `commentaire` à anonymiser à J+180 selon le mémo).
+Pour etre conforme au RGPD, une purge des feedbacks est faite après 30 jours. Faute de solution de filtre pérrenne pour le moment. A voir avec la mise en place d'un agent IA de filtre, peut etre.
 
 ## Contact
 
